@@ -1,0 +1,28 @@
+# 1. GPU support on Linux / Windows OSs
+--extra-index-url https://download.pytorch.org/whl/cu121
+
+# 2. Core Machine Learning & Data Science
+torch
+torchvision
+torchaudio
+numpy
+scipy
+pandas
+scikit-learn
+scikit-image
+
+# 3. Visualization & UI
+matplotlib
+gradio
+gradio-client
+
+# 4. Image/File Handling
+pillow
+imageio
+tifffile
+h5py
+huggingface_hub
+
+# 5. Utilities
+tqdm
+pyyaml

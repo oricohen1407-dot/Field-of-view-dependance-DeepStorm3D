@@ -1,29 +1,36 @@
-# debug_pipeline.py
+# main.py
 # Run AutoDS3D steps without the GUI. Edit the PARAMS below and run any step.
-# Use your env2 interpreter. From project root:
-#   /bigdata/ori_cohen/anaconda3/envs/env2/bin/python debug_pipeline.py --step psf
 
-# debugger.py  (place this file in your repo root)
-import os, sys
+# Steps to install:
+# 1. create a virtual environment and activate it:
+#     (python -m venv .venv; .\.venv\Scripts\activate on Windows, or source .venv/bin/activate on Linux/Mac)
+# 2. pip install -r requirements.txt
+# 3. python main.py
+
+import os
 from pathlib import Path
 import pickle
 import argparse
 from pathlib import Path
 
 
-
 # Avoid GUI backends on a headless server
 os.environ.setdefault("MPLBACKEND", "Agg")
 
-# --- Project paths -----------------------------------------------------------
-PROJECT_DIR = Path(__file__).resolve().parent.parent   # put this file in the repo root
-os.chdir(PROJECT_DIR)                           # important: many functions use CWD
-print("CWD:", Path.cwd())
+# --- Project paths and constants ---------------------------------------------
+PROJECT_DIR = Path(__file__).resolve().parent
+from emitter_centers import (
+    ZSTACK_FILE, CENTRAL_BEAD_COORDINATES_PIXEL, OFFAXIS_ZSTACK_FILES, OFFAXIS_COORDS_PIXEL, RAW_IMAGE_FOLDER
+)
 
 # --- Import pipeline functions ----------------------------------------------
 from func_utils import (
     func1, func2, func3, func4, func5, func6_1, func6_2, func7
 )
+
+# --- Project paths -----------------------------------------------------------
+os.chdir(PROJECT_DIR)                           # important: many functions use CWD
+print("CWD:", Path.cwd())
 
 # --- Fixed parameters (EDIT THESE ONCE) -------------------------------------
 # Optical + acquisition
@@ -37,117 +44,8 @@ ps_camera       = 11             # um
 ps_BFP          = 80           # um
 external_mask   = "None"         # or absolute path to a .mat mask
 
-# PSF retrieval inputs
-#zstack_file     = str(PROJECT_DIR / "test2" / "scan_640nm_range_8um_step0.2um_mes_007_croped_range3.4.tif")
-#zstack_file     = str(PROJECT_DIR / "2026_01_13_Mitochondria_flat/Beads_before/behind_objective" / "Beads_range_-2um_to_3um_x600_y562_pixels.tif")
-#zstack_file = str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_left_-2um_to_2um_x209_y513.tif")
-
-# beads from 16/02/2026
- #Beads in air (on coverslip) for 21/01/2026
-#inputs mes3 (main microtubuls)
-zstack_file     = str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_center_x477_y573_2um.tif")
-centralBeadCoordinates_pixel = [573, 477]  # optical axis reference ([y,x])
-
-offaxis_zstack_files = [
-    #str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_center_x477_y573_2um.tif"),
-    str(PROJECT_DIR /"2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_bottomRight_x866_y765_2um.tif"),
-    str(PROJECT_DIR /"2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_topRight_x851_y173_2um.tif"),
-    str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/"  / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_top_x364_y152_2um.tif"),
-    str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/"  / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_Left_x146_y417_2um.tif"),
-
-    #str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_centerRight_x710_y618.tif"),  #around the centers
-    str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_centerTop_x582_y358.tif"),
-    #str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_centerBottomRight_x670_y780.tif"),
-    str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_027_centerBottom_x368_y826.tif"),
-    str(PROJECT_DIR / "2026_02_16_microtubules/beads_shiftedFOV_afterExperiment/" / "behind_obj_exc_640nm_oil_x100_145_step0.2um_025_bottom_x682_y982.tif")  # bottom - area of interest
-]
-
-offaxis_coords_pixel = [
-    #[573, 477],
-    [765, 866],   # [r,c] in full camera coordinates
-    [180, 851],
-    [152, 364],
-    [417, 146],
-
-    #[618, 710],  # around the center
-    [358, 582],
-    #[780, 670],
-    [826, 368],
-    [982, 682]
-]
-'''
- # inputs mitochondria
-zstack_file     = str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif")
-centralBeadCoordinates_pixel = [561, 647]  # optical axis reference ([y,x])
-
-offaxis_zstack_files = [
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_bottom_-2um_to_2um_x295_y1027.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_top_-2um_to_2um_x815_y183.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_right_-2um_to_2um_x1048_y726.tif")
-   ]
-
-offaxis_coords_pixel = [
-    #[573, 477],
-    [1027, 295],   # [r,c] in full camera coordinates
-    [183, 815],
-    [726, 1048]
-]
-
-'''
-# Ori's edit added on 2/01/2026 for mask displacement optimization
-
-# beads in water #2
-'''
- #Beads in air (on coverslip) for 21/01/2026
-zstack_file     = str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif")
-
-offaxis_zstack_files = [
-    #str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_right_-2um_to_2um_x1048_y726.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_left_-2um_to_2um_x209_y513.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_top_-2um_to_2um_x815_y183.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/"  / "BehindObj_001_bottom_-2um_to_2um_x295_y1027.tif"),
-]
-
-offaxis_coords_pixel = [
-    #[561, 647],
-    [726, 1048],   # [r,c] in full camera coordinates
-    [513, 209],
-    [183, 815],
-    [1027, 295],
-]
-'''
-'''
-# for mask design:
-
- #Beads in air (on coverslip)
-zstack_file     = str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif")
-
-offaxis_zstack_files = [
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif"),
-    str(PROJECT_DIR / "2026_01_21_Mitochondria/stack_before/" / "BehindObj_001_center__-2um_to_2um_x647_y561.tif"),
-
-]
-
-offaxis_coords_pixel = [
-    #[561, 647],
-    [726, 1048],   # [r,c] in full camera coordinates
-    [513, 209],
-    [183, 815],
-    [1027, 295],
-] 
- 
-'''
-#centralBeadCoordinates_pixel = [651, 647]  # optical axis reference
-
-# End  Ori's edit added on 2/01/2026 for mask displacement optimization
-
-
 #nfp_text        = "-7, -3, 21"  # start,end,count (um) #  works good!
 nfp_text        = "-7.5, -3.5, 21"  # start,end,count (um) # best!! works good!
-
 
 #NFP = -5.5 + 1.5/1.33 # res7 and res 8. because there is a NFP shift in the system
 #zrange = "-0.2, 2.8"   # res7 and res 8. 0.3 is "focus" when nfp bead [-7,3] and measured nfp is -3.9 res8 mes3
@@ -156,22 +54,7 @@ NFP = -5.5 + 2.0/1.33 # up to res15. because there is a NFP shift in the system
 NFP = -5.5 + 1.6 #2.2/1.33 # res16
 zrange = "0.0, 3.2"   # res7 and res 8. 0.3 is "focus" when nfp bead [-7,3] and measured nfp is -3.9 res8 mes3
 #zrange = "0.3,1.1"
-
 #zrange = "-0.7, 2.4"   # 0.3 is "focus" when nfp bead [-7,3] and measured nfp is -3.9 res8 mes3
-
-# Raw data (blinking images)
-
-#raw_image_folder= str(PROJECT_DIR / "2026_01_21_Mitochondria/mes3/" / "behindObj_exc_640nm_oil_x100_145_026")  # mes3 of 21/01/2025 experiment
-#raw_image_folder= str(PROJECT_DIR / "2026_01_21_Mitochondria/mes2/" / "behind_obj_010")  # mes2 of 21/01/2025 experiment
-#raw_image_folder= str(PROJECT_DIR / "2026_02_16_microtubules/mes4_shiftedFOV/" /  "behindObj_exc_640nm_oil_x100_145_044")  # mes4 of 16/02/2025 experiment
-
-#raw_image_folder= str(PROJECT_DIR / "2026_01_21_Mitochondria/mes3/" / "behind_obj_016 - Copy")  # mes3 of 21/01/2025 experiment
-#raw_image_folder= str(PROJECT_DIR / "2026_01_21_Mitochondria/mes3/" / "behind_obj_018")  # mes3 of 21/01/2025 experiment
-#raw_image_folder= str(PROJECT_DIR / "2026_02_16_microtubules/mes3_shiftedFOV/" /  "behindObj_exc_640nm_oil_x100_145_026 - Copy")  # mes3 of 16/02/2025 experiment
-raw_image_folder= str(PROJECT_DIR / "2026_02_16_microtubules/mes3_shiftedFOV/" /  "behindObj_exc_640nm_oil_x100_145_031")  # mes3 of 16/02/2025 experiment
-#raw_image_folder= str(PROJECT_DIR / "training_data_res19/" /  "reconstructed_full_fov")  # mes3 of 16/02/2025 experiment
-
-
 
 
 snr_roi         = "550, 550, 650, 650"     # r0,c0,r1,c1 (pixels)
@@ -187,9 +70,6 @@ num_training_images = 5000 #400 #400 # 500//50
 test_idx        = 1000
 threshold       = 20 #20 #30
 
-
-# Optional: reuse a previous param_dict pickle produced by training (func5)
-previous_param_dict = "None"   # or e.g. "param_dict_01-23_17-02.pickle"
 
 # Where we cache GUI-like state between steps
 STATE_PICKLE = PROJECT_DIR / ".debug_state.pkl"
@@ -211,7 +91,7 @@ def run_step(step):
         M, NA, n_immersion, lamda, n_sample, f_4f, ps_camera, ps_BFP, external_mask,
         zstack_file, nfp_text, NFP, zrange, raw_image_folder, snr_roi, max_pv, projection_01,
         num_z_voxel, training_im_size, us_factor, max_num_particles, num_training_images,
-        previous_param_dict, test_idx, threshold, state
+        test_idx, threshold, state
     )
 
     state.setdefault("param_dict", {})
