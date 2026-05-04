@@ -61,9 +61,8 @@ threshold       = 20 #20 #30
 
 # TODO (RK): Add a "save conf to file support"
 
-def run_step():
-    state = {}
-    state.setdefault("param_dict", {})
+def run_characterize_PSF():
+    state = {"param_dict": {}}
     state["param_dict"]["centralBeadCoordinates_pixel"] = CENTRAL_BEAD_COORDINATES_PIXEL
     state["param_dict"]["offaxis_zstack_files"] = OFFAXIS_ZSTACK_FILES
     state["param_dict"]["offaxis_coords_pixel"] = OFFAXIS_COORDS_PIXEL
@@ -71,15 +70,10 @@ def run_step():
 
     state["param_dict"]["mask_fit_save_dir"] = str(PROJECT_DIR / "mask_fit_outputs")
 
-    args = (
-        M, NA, n_immersion, lamda, n_sample, f_4f, ps_camera, ps_BFP, external_mask,
-        ZSTACK_FILE, nfp_text, NFP, zrange, RAW_IMAGE_FOLDER, snr_roi, max_pv, projection_01,
-        num_z_voxel, training_im_size, us_factor, max_num_particles, num_training_images,
-        test_idx, threshold, state
-    )
-
-    msg = characterize_PSF(*args)
+    msg = characterize_PSF(M, NA, n_immersion, lamda, n_sample, f_4f, ps_camera,
+                            ps_BFP, external_mask, ZSTACK_FILE, nfp_text, NFP,
+                            zrange, state)
     print("\n=== STEP OUTPUT ===\n", msg)
 
 if __name__ == "__main__":
-    run_step()
+    run_characterize_PSF()

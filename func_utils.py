@@ -1,4 +1,3 @@
-
 from app_utils import (
     phase_retrieval,
     show_z_psf,
@@ -8,10 +7,9 @@ import numpy as np
 import torch
 import scipy.io as sio
 
-def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera, ps_BFP, external_mask,
-          zstack_file, nfp_text, NFP, zrange, raw_image_folder, snr_roi, max_pv, projection_01,
-          num_z_voxel, training_im_size, us_factor, max_num_particles, num_training_images, previous_param_dict, test_idx, threshold,
-          state):
+def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera,
+                      ps_BFP, external_mask, zstack_file, nfp_text, NFP, 
+                      zrange, state):
     # fetch param_dict
     if 'param_dict' not in state.keys():  # in the case of preprocessing images before characterizing PSF
         state['param_dict'] = dict()
@@ -35,8 +33,6 @@ def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera, ps_B
     device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")  # GPU device cuda:0, cuda:1, cuda:2 or cuda:3
     print(f'device used (characterize_PSF): {device}')
     param_dict['device'] = device
-    #end ori's edit
-    #param_dict['device'] = torch.device('cuda:'+str(0) if torch.cuda.is_available() else 'cpu')
 
     # a dict for phase retrieval
     nfp_text = nfp_text.split(',')
@@ -59,9 +55,10 @@ def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera, ps_B
         fine_defocus_step_um=0.1,
         max_shift_px=10,
     )
+
+    # TODO (RK): Up to here only parameter handling - move out of function
+
     if external_mask == 'None':
-
-
         phase_mask, g_sigma, ccs = phase_retrieval(param_dict, pr_dict)
         print(f'Phase mask is retrieved. blue sigma: {np.round(g_sigma, decimals=2)}.')
         print(f'PSF modeling accuracy: average cc of {np.round(np.mean(ccs), decimals=4)}.')

@@ -187,48 +187,8 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
             bead_id_list.append(bead_id)
             is_onaxis_list.append(name == "onaxis")  # <-- add
 
-        # end addition by ori 27/01/2026
-
-        ''' # replaced on 27/01/2026
-        
-        for name, zst, x_um, y_um in stacks:
-            if zst.shape[0] != Z:
-                raise ValueError(f"{name}: Z mismatch. stack has {zst.shape[0]} but nfps has {Z}")
-    
-                # ---------- ORIGINAL PR BACKGROUND CLEANUP ----------
-                corner_size = max(7, int(0.1 * zst.shape[1]))
-    
-                patches = np.concatenate(
-                    (
-                        np.concatenate((zst[:, :corner_size, :corner_size],
-                                        zst[:, :corner_size, -corner_size:]), axis=2),
-                        np.concatenate((zst[:, -corner_size:, :corner_size],
-                                        zst[:, -corner_size:, -corner_size:]), axis=2),
-                    ),
-                    axis=1
-                )
-    
-                means = np.mean(patches, axis=(1, 2), keepdims=True)
-                stds = np.std(patches, axis=(1, 2), keepdims=True)
-    
-                zst = zst - means
-                mask = (zst > stds)
-    
-                struct = ndimage.generate_binary_structure(2, 1)
-                mask = np.array([
-                    ndimage.binary_dilation(
-                        ndimage.binary_erosion(mask[i], struct),
-                        struct
-                    ) for i in range(mask.shape[0])
-                ], dtype=np.float32)
-    
-                zst = zst * mask
-                # ---------- END CLEANUP ----------
-                '''
         # normalize AFTER masking
         #zst = zst / (np.sum(zst, axis=(1, 2), keepdims=True) + 1e-12)
-
-
 
     y_true = torch.from_numpy(np.stack(y_list, 0)).to(device)  # [B,H,W]
     xyzps = torch.from_numpy(np.asarray(xyz_list, np.float32)).to(device)  # [B,4]
@@ -247,12 +207,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     Hroi, Wroi = y_true.shape[-2], y_true.shape[-1]  # <-- ALWAYS matches the training target
     param_dict['H'] = int(Hroi)
     param_dict['W'] = int(Wroi)
-    '''
-    params_pr = dict(param_dict)
-    params_pr['H'] = int(Hroi)
-    params_pr['W'] = int(Wroi)
-    '''
-    # ori's edit from 26/01/2026 for improved pr with displacement
+
     params_pr = dict(param_dict)
     params_pr['H'] = int(Hroi)
     params_pr['W'] = int(Wroi)
@@ -271,7 +226,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     # ori's edit from 26/01/2026 for improved pr with displacement
     opt = torch.optim.Adam(
         [
-            {'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", 100000 *pr_dict['learning_rate']))},
+            {'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", 100000 * pr_dict['learning_rate']))},
             #{'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", pr_dict['learning_rate']))},
             {'params': [im_model.g_sigma], 'lr': float(pr_dict.get("lr_sigma", 5 * 0*pr_dict['learning_rate']))},
             {'params': [im_model.d_raw], 'lr': float(pr_dict.get("lr_d", 500 * pr_dict['learning_rate']))},
@@ -431,68 +386,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
             eps = 1e-12
             pred_n = pred / (pred.sum(dim=(1, 2), keepdim=True) + eps)
             loss = F.mse_loss(pred_n, y_aligned)
-            '''
-            forceSmoothness = True
-            if not forceSmoothness:
-                loss = F.mse_loss(pred_n, y_aligned)
-            else:
-                # added force smoothness on 16/03/2026
-                loss_data = F.mse_loss(pred_n, y_aligned)
-                # aperture: only regularize inside the region you care about
-                aperture = (im_model.circ_scaled > 0.5).to(im_model.phase_mask.dtype) if hasattr(im_model,"circ_scaled") else None
-                lam = float(pr_dict.get("lambda_mask_smooth",5e-8))  # start small, e.g. 1e-4
-
-                #loss_reg = phasor_tv_loss(im_model.phase_mask, aperture=aperture)
-                loss_reg = phasor_laplacian_loss(im_model.phase_mask, aperture=aperture)
-                #if epoch % 10 == 0:
-                    #print("loss_data", float(loss_data), "loss_reg", float(loss_reg), "lam*reg", float(lam * loss_reg))
-                loss = loss_data + lam * loss_reg
-                #end
-            '''
-            # end 15/03/2026
-        ''' removed on 15/03/2026 to add small defocus robustness in PR
-        else:
-            # added on 29/01/2026 - shift lateral for off axis cases
-            pred = im_model(xyzps, NFPs)
-
-            # --- translation-invariant loss for OFF-AXIS only ---
-            y_aligned = y_true  # default: no change
-
-            align_offaxis = True
-            if align_offaxis:
-                with torch.no_grad():
-                    y_aligned = y_true.clone()
-
-                    off_idx = torch.where(~is_onaxis)[0]
-                    for i in off_idx.tolist():
-                        a = pred[i].detach()  # [H,W]
-                        b = y_true[i]  # [H,W]
-
-                        dy, dx = phasecorr_shift_int(a, b, max_shift_px=10)
-
-                        # handle sign ambiguity safely: try both directions, pick higher CC
-                        b1 = torch.roll(b, shifts=(dy, dx), dims=(0, 1))
-                        b2 = torch.roll(b, shifts=(-dy, -dx), dims=(0, 1))
-                        if cc_score(a, b2) > cc_score(a, b1):
-                            b1 = b2
-
-                        y_aligned[i] = b1
-
-            eps = 1e-12
-            pred_n = pred / (pred.sum(dim=(1, 2), keepdim=True) + eps)  # unit-sum prediction
-            loss = F.mse_loss(pred_n, y_aligned)
-            #loss = F.mse_loss(pred, y_aligned)
-            ''' # end 03/15/2026
-
-        ''' 
-        pred = im_model(xyzps, NFPs)
-        with torch.no_grad():
-            dy, dx = estimate_shift_phasecorr(pred, y_true)  # shift target to match pred
-            y_aligned = torch.stack([torch.roll(y_true[i], shifts=(int(dy[i]), int(dx[i])), dims=(-2, -1))
-                                     for i in range(y_true.shape[0])], dim=0)
-
-        loss = F.mse_loss(pred, y_aligned)
-        '''
+           
         # keep some MSE to prevent "degenerate" solutions
         #loss = 0.2 * loss_mse + 0.8 * loss_ac
         #loss = 0.0 * loss_mse + 1.0 * loss_ac
@@ -542,58 +436,6 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
                 print(
                     f"[PR] epoch {epoch:4d} loss={float(loss.item()):.6g}  d={d_now:.2f} um  g_sigma={float(im_model.g_sigma.item()):.4f}")
 
-    # end ori's edit from 26/01/2026 for improved pr with displacement
-
-    ''' removed on 26/01/2026
-    opt = torch.optim.Adam([im_model.phase_mask, im_model.g_sigma], lr=pr_dict['learning_rate'])
-
-    # ----------------------------
-    # Coordinate descent for d
-    # ----------------------------
-    d = float(param_dict.get("mask_offset_in_um", 0.0))
-    d_step = float(pr_dict.get("d_step_um", 1000.0))
-    d_update_every = int(pr_dict.get("d_update_every", 25))
-    d_min, d_max = pr_dict.get("d_bounds_um", (0.0, 70000.0))
-
-    ccs = []
-
-    def loss_for_current_d():
-        pred = im_model(xyzps, NFPs)
-        return F.mse_loss(pred, y_true)
-
-    for epoch in range(pr_dict['epochs']):
-        opt.zero_grad()
-        loss = loss_for_current_d()
-        loss.backward()
-        opt.step()
-
-        # CC for monitoring
-        with torch.no_grad():
-            pred = im_model(xyzps, NFPs)
-            cc = calculate_cc(pred.detach().cpu().numpy(), y_true.detach().cpu().numpy())
-            ccs.append(cc)
-
-        # --- update d by small 1D search ---
-        if (epoch + 1) % d_update_every == 0:
-            with torch.no_grad():
-                candidates = np.clip(
-                    d + np.array([-2, -1, 0, 1, 2], dtype=np.float32) * d_step,
-                    d_min, d_max
-                )
-
-                best_d = d
-                best_loss = float("inf")
-                for dd in candidates:
-                    im_model.mask_offset_in_um = float(dd)
-                    L = float(loss_for_current_d().item())
-                    if L < best_loss:
-                        best_loss = L
-                        best_d = float(dd)
-
-                d = best_d
-                im_model.mask_offset_in_um = d
-                d_step *= 0.7  # refine step gradually
-    '''
     # save final values back
     param_dict['mask_offset_in_um'] = float(im_model.d_um().detach().cpu().item())
     print(f"[PR] done. best d = {param_dict['mask_offset_in_um']:.2f} um")
@@ -683,150 +525,6 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
 
     return phase_mask, g_sigma, ccs
 
-    # end ori's edit from 26/01/2026 - phase retrival with d
-
-
-    ''' removed on 26/01/2026
-    def phase_retrieval(param_dict, pr_dict, fig_flag=True):
-        # ori's edit from 26/01/2026 - phase retrival with d
-        device = param_dict['device']
-        # ori's edit
-        device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")  # GPU device cuda:0, cuda:1, cuda:2 or cuda:3
-        print(f'device used (phase_retrieval): {device}')
-        #end ori's edit
-        file_path = pr_dict['zstack_file_path']
-    
-        nfps = pr_dict['nfps']
-        r_bead = pr_dict['r_bead']
-        epoch_num = pr_dict['epoch_num']
-        loss_label = pr_dict['loss_label']
-    
-        # read the zstack and set the image size for the imaging model
-        zstack = io.imread(file_path)  # axis0 -- z position
-    
-        corner_size = max(7, int(0.1*zstack.shape[1]))
-    
-        param_dict['H'], param_dict['W'] = zstack.shape[1], zstack.shape[2]
-    
-        # estimate Gaussian noise: mean and std
-        patches = np.concatenate(
-            (np.concatenate((zstack[:, :corner_size, :corner_size], zstack[:, :corner_size, -corner_size:]), axis=2),
-             np.concatenate((zstack[:, -corner_size:, :corner_size], zstack[:, -corner_size:, -corner_size:]), axis=2)),
-            axis=1)
-        means = np.mean(patches, axis=(1, 2), keepdims=True)
-        stds = np.std(patches, axis=(1, 2), keepdims=True)
-        # filtering mask
-        zstack = zstack - means
-        mask = (zstack > stds)
-        # erode and dimate the mask
-        struct = ndimage.generate_binary_structure(2, 1)  # raius 1 or 2
-        mask = [ndimage.binary_dilation(ndimage.binary_erosion(mask[i, :, :], struct), struct) for i in range(mask.shape[0])]
-        # clean zstack
-        zstack = zstack * np.array(mask)
-        z_photons = np.sum(zstack, axis=(1, 2))
-    
-        # Nuke any cached phase mask so the model will use a fresh one for the current N
-        param_dict.pop('phase_mask', None)
-        im_model_bead = ImModelBead(param_dict)
-        im_model_bead.circ = im_model_bead.circ_NA  # include SAF (use full NA support)
-    
-        print(f'BFP aperture in pixel unit: {int(np.round(im_model_bead.pn_pupil))}/{im_model_bead.N}.')
-    
-        im_model_bead.phase_mask.requires_grad_(True)
-        im_model_bead.g_sigma.requires_grad_(True)
-    
-        num_zs = zstack.shape[0]
-        xyzps = np.zeros((num_zs, 4))
-        xyzps[:, 3] = z_photons
-        xyzps = torch.tensor(xyzps, device=device)
-        nfps_np = nfps.copy()
-        nfps = torch.tensor(nfps, device=device).unsqueeze(1)
-    
-        y = torch.tensor(zstack, device=device)  # measurement
-        optimizer = torch.optim.Adam([{'params': im_model_bead.phase_mask, 'lr': 0.1},
-                                      {'params': im_model_bead.g_sigma, 'lr': 0.06}
-                                      ])
-        epoch_loss = []
-        for i in range(100):
-            fx = im_model_bead(xyzps, nfps)
-    
-            loss = torch.nn.functional.mse_loss(fx, y)  # mse
-            # loss = torch.mean(fx-y*torch.log(fx))  # gauss log likelihood
-    
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            epoch_loss.append(loss.item())
-    
-        optimizer = torch.optim.Adam([{'params': im_model_bead.phase_mask, 'lr': 0.02},
-                                      {'params': im_model_bead.g_sigma, 'lr': 0.01}
-                                      ])
-        for i in range(100):
-            with torch.no_grad():
-                fx = im_model_bead(xyzps, nfps)
-                model_psfs = fx.detach().cpu().numpy()
-                ccs = calculate_cc(zstack, model_psfs)
-                ids = np.argsort(ccs)[:5]
-    
-            fx = im_model_bead(xyzps[ids], nfps[ids])
-            loss = torch.nn.functional.mse_loss(fx, y[ids])
-            # loss = torch.mean(fx-y[ids]*torch.log(fx))
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            epoch_loss.append(loss.item())
-    
-        with torch.no_grad():
-            fx = im_model_bead(xyzps, nfps)
-            model_psfs = fx.detach().cpu().numpy()
-            ccs = calculate_cc(zstack, model_psfs)
-    
-        mask_rec = im_model_bead.phase_mask.detach().cpu().numpy()
-        mask_rec_no_wrapping = im_model_bead.phase_mask.detach().cpu().numpy()
-        mask_rec = np.angle(np.exp(1j * mask_rec))
-        g_sigma = im_model_bead.g_sigma.detach().item()
-        psfs_np = model_psfs
-        phase_mask = mask_rec
-        #phase_mask = mask_rec_no_wrapping
-    
-    
-        if fig_flag:
-            fig = plt.figure(1, figsize=(7, 4))
-            gs = fig.add_gridspec(3, 7)
-    
-            ax = fig.add_subplot(gs[:2, :3])
-            maskplot = ax.imshow(phase_mask)
-            plt.colorbar(maskplot)
-            ax.set_title('retrieved phase')
-    
-            ax = fig.add_subplot(gs[0, 3:])
-            ids = (0, (zstack.shape[0]-1) // 4, (zstack.shape[0]-1) // 2, ((zstack.shape[0]-1)//4)*3, -1)
-            im_demo = np.concatenate((zstack[ids[0]], zstack[ids[1]], zstack[ids[2]], zstack[ids[3]],
-                                      zstack[ids[4]]), axis=1)
-            ax.imshow(im_demo)
-            ax.axis('off')
-            ax.set_title('exp')
-    
-            ax = fig.add_subplot(gs[1, 3:])
-            im_demo = np.concatenate((psfs_np[ids[0]], psfs_np[ids[1]], psfs_np[ids[2]], psfs_np[ids[3]],
-                                      psfs_np[ids[4]]), axis=1)
-            ax.imshow(im_demo)
-            ax.axis('off')
-            ax.set_title('model')
-    
-            ax = fig.add_subplot(gs[2, :])
-            ax.plot(nfps_np, ccs)
-            ax.set_xlabel('NFP [um]')
-            ax.set_ylabel('CC')
-            # ax.set_title('model accuracy')
-    
-            plt.savefig('phase_retrieval_results.jpg', bbox_inches='tight', dpi=300)
-            plt.clf()
-            # print(f'phase retrieval results: phase_retrieval_results.jpg')
-    
-        return phase_mask, g_sigma, ccs
-
-    '''
 
 def show_z_psf(param_dict):
     model = ImModel(param_dict)
