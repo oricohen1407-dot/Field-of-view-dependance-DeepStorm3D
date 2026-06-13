@@ -39,6 +39,7 @@ def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera,
     nfps = np.linspace(float(nfp_text[0]), float(nfp_text[1]), int(nfp_text[2]))
     param_dict["nfps"] = nfps
 
+    # TODO (RK): move to advanced config
     pr_dict = dict(
         # zstack_file_path=os.path.join(os.getcwd(), zstack_file),
         zstack_file_path=zstack_file,
@@ -51,13 +52,14 @@ def characterize_PSF(M, NA,  n_immersion, lamda, n_sample, f_4f, ps_camera,
 
         # added on 15/03/2026:
         # bead-wise robust alignment
-        fine_defocus_range_um=0.2,
+        fine_defocus_range_um=0.2, # RK: +- 0.2 free movement in z for better fit
         fine_defocus_step_um=0.1,
-        max_shift_px=10,
+        max_shift_px=10, # RK: move lateraly to accomodate for innacurate center of weirdly shaped PSF 
     )
 
     # TODO (RK): Up to here only parameter handling - move out of function
 
+    # TODO (RK): make external mask into starting point and not override actual phase retrieval
     if external_mask == 'None':
         phase_mask, g_sigma, ccs = phase_retrieval(param_dict, pr_dict)
         print(f'Phase mask is retrieved. blue sigma: {np.round(g_sigma, decimals=2)}.')

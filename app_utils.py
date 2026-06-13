@@ -81,7 +81,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     # ----------------------------
     stacks = []
 
-    # on-axis stack (x=y=0)
+    # RK: on-axis stack (x=y=0)
     zstack_on = io.imread(pr_dict['zstack_file_path']).astype(np.float32)
     stacks.append(("onaxis", zstack_on, 0.0, 0.0))
 
@@ -111,7 +111,6 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     bead_id_list = []
     stack_index = 0
 
-    # ori added on 27/01/2026
     is_onaxis_list = []  # <-- add
 
     for name, zst, x_um, y_um in stacks:
@@ -212,6 +211,8 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     params_pr['H'] = int(Hroi)
     params_pr['W'] = int(Wroi)
 
+    # TODO (RK): check if legacy d setting related or important. 
+    # TODO (RK): If important move to user config 
     # bounds for d:
     params_pr['d_min_um'] = float(pr_dict.get("d_bounds_um", (15000, 30000.0*1))[0])
     params_pr['d_max_um'] = float(pr_dict.get("d_bounds_um", (15000, 30000.0*1))[1])
@@ -223,29 +224,18 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
 
     im_model.train()
 
-    # ori's edit from 26/01/2026 for improved pr with displacement
+    # TODO (RK): take learning rates from advanced config, delete scalings (10000, 5, 500)
     opt = torch.optim.Adam(
         [
             {'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", 100000 * pr_dict['learning_rate']))},
-            #{'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", pr_dict['learning_rate']))},
             {'params': [im_model.g_sigma], 'lr': float(pr_dict.get("lr_sigma", 5 * 0*pr_dict['learning_rate']))},
             {'params': [im_model.d_raw], 'lr': float(pr_dict.get("lr_d", 500 * pr_dict['learning_rate']))},
         ],
-        betas=(0.9, 0.99)
+        betas=(0.9, 0.99) # TODO (RK): check if 3 values are required here and what this is.
     )
-    ''' used when beads where in air 
-       opt = torch.optim.Adam(
-        [
-            {'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", 1000000 *pr_dict['learning_rate']))},
-            #{'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", pr_dict['learning_rate']))},
-            {'params': [im_model.g_sigma], 'lr': float(pr_dict.get("lr_sigma", 0.1 * pr_dict['learning_rate']))},
-            {'params': [im_model.d_raw], 'lr': float(pr_dict.get("lr_d", 500 * pr_dict['learning_rate']))},
-        ],
-        betas=(0.9, 0.99)
-    )'''
 
     ccs = []
-    # added on 15/03/2026 to make pr robust to small defocus
+    # TODO (RK): 
     fine_defocus_range_um = float(pr_dict.get("fine_defocus_range_um", 0.6))
     fine_defocus_step_um = float(pr_dict.get("fine_defocus_step_um", 0.1))
     max_shift_px = int(pr_dict.get("max_shift_px", 10))
@@ -259,6 +249,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     # end
     for epoch in range(pr_dict['epochs']):
         opt.zero_grad()
+        # TODO (RK): if lateral shift is 0 - this is False (for computational optimization), else True.
         apply_off_axis_space_invariance = True
 
         if not apply_off_axis_space_invariance:
@@ -299,12 +290,14 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
                         target_shifted = target_bead.clone()
 
                         # allow a different shift for every z slice
+                        # TODO (RK): goal here is to find the best cc per bead and not per z slice, this can potentially break the bead in half
                         for zi in range(pred_cand.shape[0]):
                             a = pred_cand[zi]
                             b = target_bead[zi]
 
                             dy, dx = phasecorr_shift_int(a, b, max_shift_px=max_shift_px)
 
+                            # TODO (RK): check if roll is needed. probably not
                             b1 = torch.roll(b, shifts=(dy, dx), dims=(0, 1))
                             b2 = torch.roll(b, shifts=(-dy, -dx), dims=(0, 1))
                             if cc_score(a, b2) > cc_score(a, b1):

@@ -35,6 +35,7 @@ external_mask   = "None"         # or absolute path to a .mat mask
 
 #nfp_text        = "-7, -3, 21"  # start,end,count (um) #  works good!
 nfp_text        = "-7.5, -3.5, 21"  # start,end,count (um) # best!! works good!
+# TODO RK: take N (21) from bead stacks (num images in z)
 
 #NFP = -5.5 + 1.5/1.33 # res7 and res 8. because there is a NFP shift in the system
 #zrange = "-0.2, 2.8"   # res7 and res 8. 0.3 is "focus" when nfp bead [-7,3] and measured nfp is -3.9 res8 mes3
@@ -46,18 +47,18 @@ zrange = "0.0, 3.2"   # res7 and res 8. 0.3 is "focus" when nfp bead [-7,3] and 
 #zrange = "-0.7, 2.4"   # 0.3 is "focus" when nfp bead [-7,3] and measured nfp is -3.9 res8 mes3
 
 
-snr_roi         = "550, 550, 650, 650"     # r0,c0,r1,c1 (pixels)
-max_pv          = 100 #80     # camera saturation-ish  #30
-projection_01   = 0                  # 0 = no 0-1 projection, 1 = yes
-#centralBeadCoordinates_pixel = [849, 854] # [r, c] ori's edit defined in ds3d_utils
-# Training data & training
-num_z_voxel     = 161 #81
-training_im_size= 1200 #/8 # 121
-us_factor       = 1  # up-scaling factor
-max_num_particles = 25*(8*8)  # 35*(8*8)?
-num_training_images = 5000 #400 #400 # 500//50
-test_idx        = 1000
-threshold       = 20 #20 #30
+# snr_roi         = "550, 550, 650, 650"     # r0,c0,r1,c1 (pixels)
+# max_pv          = 100 #80     # camera saturation-ish  #30
+# projection_01   = 0                  # 0 = no 0-1 projection, 1 = yes
+# #centralBeadCoordinates_pixel = [849, 854] # [r, c] ori's edit defined in ds3d_utils
+# # Training data & training
+# num_z_voxel     = 161 #81
+# training_im_size= 1200 #/8 # 121
+# us_factor       = 1  # up-scaling factor
+# max_num_particles = 25*(8*8)  # 35*(8*8)?
+# num_training_images = 5000 #400 #400 # 500//50
+# test_idx        = 1000
+# threshold       = 20 #20 #30
 
 # TODO (RK): Add a "save conf to file support"
 
