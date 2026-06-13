@@ -211,11 +211,6 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     params_pr['H'] = int(Hroi)
     params_pr['W'] = int(Wroi)
 
-    # TODO (RK): check if legacy d setting related or important. 
-    # TODO (RK): If important move to user config 
-    # bounds for d:
-    params_pr['d_min_um'] = float(pr_dict.get("d_bounds_um", (15000, 30000.0*1))[0])
-    params_pr['d_max_um'] = float(pr_dict.get("d_bounds_um", (15000, 30000.0*1))[1])
     # initial d:
     params_pr['mask_offset_in_um'] = float(param_dict.get("mask_offset_in_um", 0.0))
     # end ori's edit from 26/01/2026 for improved pr with displacement
@@ -224,14 +219,13 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
 
     im_model.train()
 
-    # TODO (RK): take learning rates from advanced config, delete scalings (10000, 5, 500)
     opt = torch.optim.Adam(
         [
-            {'params': [im_model.phase_mask], 'lr': float(pr_dict.get("lr_phase", 100000 * pr_dict['learning_rate']))},
-            {'params': [im_model.g_sigma], 'lr': float(pr_dict.get("lr_sigma", 5 * 0*pr_dict['learning_rate']))},
-            {'params': [im_model.d_raw], 'lr': float(pr_dict.get("lr_d", 500 * pr_dict['learning_rate']))},
+            {'params': [im_model.phase_mask], 'lr': pr_dict['lr_phase_mult'] * pr_dict['learning_rate']},
+            {'params': [im_model.g_sigma],    'lr': pr_dict['lr_sigma_mult'] * pr_dict['learning_rate']},
+            {'params': [im_model.d_raw],      'lr': pr_dict['lr_d_mult']     * pr_dict['learning_rate']},
         ],
-        betas=(0.9, 0.99) # TODO (RK): check if 3 values are required here and what this is.
+        betas=tuple(pr_dict['adam_betas'])
     )
 
     ccs = []
@@ -249,8 +243,7 @@ def phase_retrieval(param_dict, pr_dict, fig_flag=True):
     # end
     for epoch in range(pr_dict['epochs']):
         opt.zero_grad()
-        # TODO (RK): if lateral shift is 0 - this is False (for computational optimization), else True.
-        apply_off_axis_space_invariance = True
+        apply_off_axis_space_invariance = (max_shift_px > 0)
 
         if not apply_off_axis_space_invariance:
             pred = im_model(xyzps, NFPs)  #original

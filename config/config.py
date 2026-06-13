@@ -49,6 +49,10 @@ class AdvancedConfig:
     learning_rate: float = 0.001
     loss_label: int = 1          # 1=Gaussian log-likelihood, 2=L2
     r_bead: float = 0.02         # bead radius (um)
+    adam_betas: tuple = (0.9, 0.99)   # Adam (beta1, beta2)
+    lr_phase_mult: float = 100000     # phase mask LR = lr_phase_mult * learning_rate
+    lr_sigma_mult: float = 0          # g_sigma LR multiplier; 0 = frozen
+    lr_d_mult: float = 500            # mask displacement LR = lr_d_mult * learning_rate
 
     # --- Per-bead fine alignment ---
     fine_defocus_range_um: float = 0.2
@@ -59,8 +63,8 @@ class AdvancedConfig:
     g_sigma: float = 1.2         # initial Gaussian blur sigma (um); tuned 17/12/2025
     g_size: int = 9              # blur kernel size (pixels)
     circ_scale: float = 5.3/5.8  # aperture scaling; tuned 26/01/2026
-    d_min_um: float = 8000       # mask displacement lower bound (um)
-    d_max_um: float = 0.0        # upper bound; 0 means sigmoid maps d_raw into [0, 8000]
+    d_min_um: float = 15000      # mask displacement lower bound (um)
+    d_max_um: float = 30000      # mask displacement upper bound (um)
 
     # --- Camera / noise ---
     bitdepth: int = 16
@@ -133,6 +137,10 @@ class Config:
             'fine_defocus_range_um': a.fine_defocus_range_um,
             'fine_defocus_step_um': a.fine_defocus_step_um,
             'max_shift_px': a.max_shift_px,
+            'adam_betas': a.adam_betas,
+            'lr_phase_mult': a.lr_phase_mult,
+            'lr_sigma_mult': a.lr_sigma_mult,
+            'lr_d_mult': a.lr_d_mult,
         }
 
     # --- Serialization ---
