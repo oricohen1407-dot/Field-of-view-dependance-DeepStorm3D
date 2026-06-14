@@ -38,9 +38,9 @@ class ImModel_pr(torch.nn.Module):
         self.ps_BFP = float(ps_BFP)
 
         # ---- learnable d (mask displacement) ----
-        self.d_min_um = 8000 *1 #float(params.get("d_min_um", 10000.0))
-        self.d_max_um = float(params.get("d_max_um", 16000.0*0 ))
-       #d_init = float(params.get("mask_offset_in_um", 0.0))
+        self.d_min_um = params["d_min_um"]
+        self.d_max_um = params["d_max_um"]
+        #d_init = float(params.get("mask_offset_in_um", 0.0))
         if "mask_offset_in_um" in params:
             if params["mask_offset_in_um"]!=0:  # bandage! to fix!
                 d_init = float(params["mask_offset_in_um"])
@@ -50,7 +50,7 @@ class ImModel_pr(torch.nn.Module):
             d_init = 0.5 * (self.d_min_um + self.d_max_um)  # midrange default
         self.mask_offset_in_um = float(params.get("mask_offset_in_um", 0.0))
 
-        self.centralBeadCoordinates_pixel = list(params.get('centralBeadCoordinates_pixel', [600,600]))  # 27/01/2026
+        self.centralBeadCoordinates_pixel = list(params['centralBeadCoordinates_pixel'])
         self.ps_camera = params['ps_camera']
         self.NFP = params['NFP']  # location of the nominal focal plane
         self.n_immersion = params['n_immersion']
@@ -66,9 +66,6 @@ class ImModel_pr(torch.nn.Module):
 
         self.d_raw = torch.nn.Parameter(torch.tensor(d_raw_init, device=device, dtype=torch.float32))
         # end improved pr 27/01/2026
-
-        # end ori's edit from 26/01/2026 - phase retrival with d
-
         # image
         H, W = params['H'], params['W']  # FOV size
         g_size = 9  # size of the gaussian blur kernel
